@@ -182,8 +182,7 @@ func (t *transport) transferRaw(ctx context.Context, ch chan<- *Packet) {
 
 		select {
 		case ch <- pkt:
-		case <-ctx.Done():
-			log.Printf("context canceled")
+		case <-ctx.Done(): // context canceled
 			return
 		}
 	}
@@ -204,8 +203,7 @@ func (t *transport) transferRtp(ctx context.Context, ch chan<- *Packet) {
 
 		select {
 		case ch <- pkt:
-		case <-ctx.Done():
-			log.Printf("context canceled")
+		case <-ctx.Done(): // context canceled
 			return
 		}
 	}

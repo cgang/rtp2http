@@ -21,11 +21,11 @@ There are some options for this program.
 - Support for other stream type
 - Support the status page
 - Support for IPv6
-- Support for non Linux platform
 - Daemonize this program? maybe, since we can use systemd
 
 ## Non Goals
 - Support for HTTPS, since this is not need at home
+- Support for non-Linux platform
 
 ## License
 This program is released under MIT license, see LICENSE for detail.

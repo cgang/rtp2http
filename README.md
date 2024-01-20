@@ -7,7 +7,9 @@ http://<ip>:<port>/udp/[multicast_address]
 http://<ip>:<port>/rtp/[multicast_address]
 ```
 
-Initially only MPEG-TS (UDP or RTP) are supported.
+The memory footprint (Resident Set Size) is under 10MB since the IO buffer is reused.
+Only MPEG-TS (UDP or RTP) is supported right now.
+This program is intended to run on Linux platform only.
 
 ## Options
 There are some options for this program.
@@ -16,9 +18,11 @@ There are some options for this program.
 - `-p <port>` optional parameter to specify HTTP listen port, default to 4022
 
 ## TODOs
-- Daemonize this program
 - Support for other stream type
-- Support the status page? maybe
+- Support the status page
+- Support for IPv6
+- Support for non Linux platform
+- Daemonize this program? maybe, since we can use systemd
 
 ## Non Goals
 - Support for HTTPS, since this is not need at home

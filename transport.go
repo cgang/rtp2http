@@ -69,7 +69,7 @@ func (p *Packet) stripRtp() bool {
 	}
 
 	p.off = offset
-	if sign&0x20 != 0 {
+	if sign&0x20 != 0 { // padding
 		p.len -= p.getByte(p.len - 1)
 	}
 

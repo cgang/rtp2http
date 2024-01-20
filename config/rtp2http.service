@@ -1,0 +1,14 @@
+# Example systemd config file
+# Note: set proper multicast interface.
+
+[Unit]
+Description=RTP to HTTP relay server
+After=network.target
+
+[Service]
+DynamicUser=yes
+ExecStart=/usr/local/bin/rtp2http -m <multicast interface> -a 0.0.0.0
+
+[Install]
+WantedBy=multi-user.target
+

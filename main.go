@@ -16,6 +16,8 @@ var (
 )
 
 func main() {
+	log.SetFlags(0) // remove all flags
+
 	var httpAddr string
 	var httpPort int
 	flag.StringVar(&mcastIface, "m", "", "multicast interface")

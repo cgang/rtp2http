@@ -8,10 +8,6 @@ import (
 	"regexp"
 )
 
-const (
-	defaultHttpPort = 4122
-)
-
 var (
 	urlPattern = regexp.MustCompile(`/?(?:udp|rtp)/([0-9.]+:[0-9]+)`)
 	webServer  *http.Server

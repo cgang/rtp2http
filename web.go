@@ -44,7 +44,7 @@ func (h *webHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusOK)
 
 		for pkt := range ch {
-			if _, err = pkt.WriteTo(resp); err == nil {
+			if err = pkt.Write(resp); err == nil {
 				tp.release(pkt)
 			} else {
 				log.Printf("error occurs while sending response: %s", err)

@@ -22,6 +22,7 @@ const (
 
 type Packet struct {
 	data []byte
+	seq  int // sequence
 	off  int // offset
 	len  int // length
 }
@@ -39,14 +40,20 @@ func (p *Packet) getUint16(offset int) uint16 {
 	return uint16(p.data[offset+1]) | uint16(p.data[offset])<<8
 }
 
-func (p *Packet) WriteTo(w io.Writer) (int64, error) {
-	n, err := w.Write(p.data[p.off:p.len])
-	return int64(n), err
+func (p *Packet) Write(w io.Writer) error {
+	for p.off < p.len {
+		if n, err := w.Write(p.data[p.off:p.len]); err == nil {
+			p.off += n
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
-func (p *Packet) stripRtp() bool {
-	ptype := p.getByte(1) // payload type
-	// seq := getUint16(buf, 2)    // sequence number
+func (p *Packet) stripRtp() {
+	ptype := p.getByte(1)       // payload type
+	p.seq = int(p.getUint16(2)) // sequence number
 
 	offset := rtpHeaderSize
 	switch ptype {
@@ -57,9 +64,8 @@ func (p *Packet) stripRtp() bool {
 
 	sign := p.getByte(0) // signature bits
 	if sign&0x10 != 0 {  // extension available
-		log.Printf("extension bit available\n")
 		exlen := p.getUint16(rtpHeaderSize + 2)
-		offset += 4 + int(exlen)
+		offset += 4 + int(exlen)*4
 	}
 
 	csrcCount := sign & 0x0F // CSRC count
@@ -72,8 +78,10 @@ func (p *Packet) stripRtp() bool {
 	if sign&0x20 != 0 { // padding
 		p.len -= p.getByte(p.len - 1)
 	}
+}
 
-	return p.off < p.len
+func (p *Packet) nextSeq() int {
+	return int(uint16(p.seq + 1))
 }
 
 // newTransport create a new transport with interface name and multicast address
@@ -140,7 +148,7 @@ func (t *transport) start(ctx context.Context) (<-chan *Packet, error) {
 	pch <- pkt // add first packet
 
 	if rtp {
-		go t.transferRtp(ctx, pch)
+		go t.transferRtp(ctx, pkt.nextSeq(), pch)
 	} else {
 		go t.transferRaw(ctx, pch)
 	}
@@ -188,23 +196,63 @@ func (t *transport) transferRaw(ctx context.Context, ch chan<- *Packet) {
 	}
 }
 
-func (t *transport) transferRtp(ctx context.Context, ch chan<- *Packet) {
+func (t *transport) transferRtp(ctx context.Context, nextSeq int, ch chan<- *Packet) {
 	defer close(ch)
 
+	enqueue := func(pkt *Packet) bool {
+		select {
+		case ch <- pkt:
+			return true
+		case <-ctx.Done(): // context canceled
+			return false
+		}
+	}
+
+	buf := make(map[int]*Packet)
 	for {
 		pkt, err := t.readPacket()
 		if err != nil {
 			break
 		}
 
-		if !pkt.stripRtp() {
-			continue
+		pkt.stripRtp()
+		seq := pkt.seq
+		if seq != nextSeq {
+			log.Printf("disorder packet received: %d", seq)
+			if len(buf) < maxPackets {
+				buf[seq] = pkt
+				continue
+			}
+
+			// there are too many disorder packets
+			log.Printf("too many disorder packets received: %d", len(buf))
+			for seq != nextSeq {
+				if pkt, ok := buf[nextSeq]; ok {
+					if !enqueue(pkt) {
+						return
+					}
+				}
+				nextSeq = int(uint16(nextSeq + 1))
+			}
+			buf = make(map[int]*Packet) // reset map
 		}
 
-		select {
-		case ch <- pkt:
-		case <-ctx.Done(): // context canceled
+		nextSeq = pkt.nextSeq()
+		if !enqueue(pkt) {
 			return
+		}
+
+		for len(buf) > 0 {
+			pkt, ok := buf[nextSeq]
+			if !ok {
+				break
+			}
+
+			delete(buf, nextSeq)
+			if !enqueue(pkt) {
+				return
+			}
+			nextSeq = pkt.nextSeq()
 		}
 	}
 }
